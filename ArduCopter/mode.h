@@ -38,7 +38,8 @@ public:
         SYSTEMID  =    25,  // System ID mode produces automated system identification signals in the controllers
         AUTOROTATE =   26,  // Autonomous autorotation
         AUTO_RTL =     27,  // Auto RTL, this is not a true mode, AUTO will report as this mode if entered to perform a DO_LAND_START Landing sequence
-        TURTLE =       28,  // Flip over after crash
+        TURTLE =       28, 
+        DRAWSTAR =     29, // Flip over after crash
 
         // Mode number 127 reserved for the "drone show mode" in the Skybrush
         // fork at https://github.com/skybrush-io/ardupilot
@@ -923,6 +924,42 @@ private:
 };
 #endif // MODE_FLOWHOLD_ENABLED
 
+
+class ModeDrawStar : public Mode {
+
+public:
+    // inherit constructor
+    using Mode::Mode;
+     Number mode_number() const override { return Number::DRAWSTAR; }
+
+    bool init(bool ignore_checks) override;
+    void run() override;
+
+    bool requires_GPS() const override { return true; }
+    bool has_manual_throttle() const override { return false; }
+    bool allows_arming(AP_Arming::Method method) const override;
+    bool is_autopilot() const override { return true; }
+    bool has_user_takeoff(bool must_navigate) const override { return false; }
+    bool in_guided_mode() const override { return true; }
+
+    bool requires_terrain_failsafe() const override { return true; }
+
+
+protected:
+
+    const char *name() const override { return "DRAW_STAR"; }
+    const char *name4() const override { return "STAR"; }
+
+
+private:
+    Vector3f path[10];
+    int path_num;
+
+    void generate_path();
+    void pos_control_start();
+    void pos_control_run();
+    
+};
 
 class ModeGuided : public Mode {
 
