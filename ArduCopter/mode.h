@@ -39,7 +39,7 @@ public:
         AUTOROTATE =   26,  // Autonomous autorotation
         AUTO_RTL =     27,  // Auto RTL, this is not a true mode, AUTO will report as this mode if entered to perform a DO_LAND_START Landing sequence
         TURTLE =       28, 
-        DRAWSTAR =     29, // Flip over after crash
+        DRAWSTAR =     45, // Flip over after crash
 
         // Mode number 127 reserved for the "drone show mode" in the Skybrush
         // fork at https://github.com/skybrush-io/ardupilot
@@ -952,12 +952,26 @@ protected:
 
 
 private:
-    Vector3f path[10];
-    int path_num;
 
-    void generate_path();
-    void pos_control_start();
-    void pos_control_run();
+ enum class Options : int32_t {
+     AllowArmingFromTX = (1U << 0),
+     // this bit is still available, pilot yaw was mapped to bit 2 for symmetry
+     // with auto
+     IgnorePilotYaw = (1U << 2),
+     SetAttitudeTarget_ThrustAsThrust = (1U << 3),
+     DoNotStabilizePositionXY = (1U << 4),
+     DoNotStabilizeVelocityXY = (1U << 5),
+     WPNavUsedForPosControl = (1U << 6),
+ };
+
+ Vector3f path[10];
+ int path_num;
+
+ void generate_path();
+ void pos_control_start();
+ void pos_control_run();
+ uint32_t get_timeout_ms() const;
+    
     
 };
 

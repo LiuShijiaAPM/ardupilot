@@ -6,7 +6,7 @@
  * Init and run calls for guided flight mode
  */
 static Vector3p guided_pos_target_cm;       // position target (used by posvel controller only)
-bool guided_pos_terrain_alt;                // true if guided_pos_target_cm.z is an alt above terrain
+bool drawstar_pos_terrain_alt;                // true if guided_pos_target_cm.z is an alt above terrain
 static Vector3f guided_vel_target_cms;      // velocity target (used by pos_vel_accel controller and vel_accel controller)
 static Vector3f guided_accel_target_cmss;   // acceleration target (used by pos_vel_accel controller vel_accel controller and accel controller)
 static uint32_t update_time_ms;
@@ -57,15 +57,37 @@ void ModeDrawStar::run()
   if (path_num < 6) {  // 五角星航线尚未走完
     if (wp_nav->reached_wp_destination()) {  // 到达某个端点
       path_num++;
+
+      gcs().send_text(MAV_SEVERITY_CRITICAL,"Draw star begins right now");
+
       wp_nav->set_wp_destination(path[path_num], false);  // 将下一个航点位置设置为导航控制模块的目标位置
     }
+  } else if ((path_num == 6) && wp_nav->reached_wp_destination()) {
+    gcs().send_text(MAV_SEVERITY_CRITICAL,"Draw star finished,now go into Loiter Mode");
+    copter.set_mode(Mode::Number::LOITER, ModeReason::MISSION_END);
   }
 
   pos_control_run();  // 位置控制器
     }
 }
 
-void ModeGuided::pos_control_run()
+uint32_t ModeDrawStar::get_timeout_ms() const
+{
+    return MAX(copter.g2.guided_timeout, 0.1) * 1000;
+}
+
+bool ModeDrawStar::allows_arming(AP_Arming::Method method) const
+{
+    // always allow arming from the ground station
+    if (method == AP_Arming::Method::MAVLINK) {
+        return true;
+    }
+
+    // optionally allow arming from the transmitter
+    return (copter.g2.guided_options & (uint32_t)Options::AllowArmingFromTX) != 0;
+};
+
+void ModeDrawStar::pos_control_run()
 {
     // process pilot's yaw input
     float target_yaw_rate = 0;
@@ -87,7 +109,7 @@ void ModeGuided::pos_control_run()
 
     // calculate terrain adjustments
     float terr_offset = 0.0f;
-    if (guided_pos_terrain_alt && !wp_nav->get_terrain_offset(terr_offset)) {
+    if (drawstar_pos_terrain_alt && !wp_nav->get_terrain_offset(terr_offset)) {
         // failure to set destination can only be because of missing terrain data
         copter.failsafe_terrain_on_event();
         return;
@@ -108,7 +130,7 @@ void ModeGuided::pos_control_run()
     }
 
     float pos_offset_z_buffer = 0.0; // Vertical buffer size in m
-    if (guided_pos_terrain_alt) {
+    if (drawstar_pos_terrain_alt) {
         pos_offset_z_buffer = MIN(copter.wp_nav->get_terrain_margin() * 100.0, 0.5 * fabsF(guided_pos_target_cm.z));
     }
     pos_control->input_pos_xyz(guided_pos_target_cm, terr_offset, pos_offset_z_buffer);
@@ -129,5 +151,6 @@ void ModeGuided::pos_control_run()
         attitude_control->input_thrust_vector_heading(pos_control->get_thrust_vector(), auto_yaw.yaw(), auto_yaw.rate_cds());
     }
 }
+
 
 #endif
